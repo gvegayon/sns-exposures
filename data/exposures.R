@@ -20,6 +20,9 @@ for (f in netnames) {
   dat[[f]][isna] <- NA_character_
 }
 
+# Rooms in household (missing in wave 4)
+dat[, t4_i10 := NA_integer_]
+
 # Reshaping the data to long ---------------------------------------------------
 dat_long <- melt(
   dat, 
@@ -35,6 +38,7 @@ dat_long <- melt(
     sibdrink   = c("t1_j15", "t2_j15", "t3_j15", "t4_nj19"),
     adultdrink = c("t1_j14", "t2_j14", "t3_j14", "t4_nj18"),
     year_value = c("t1_q6_year", "t2_q6_year", "t3_q6_year", "t4_q6_year"),
+    rooms      = c("t1_i10", "t2_i10", "t3_i10", "t4_i10"),
     present    = paste0("wave", 1:4)
   ),
   variable.name = "year"
@@ -66,6 +70,9 @@ dat_long[, hispanic := nafill(hispanic, type = "nocb"), by = "id"]
 dat_long[, female := nafill(female, type = "locf"), by = "id"] # Makes a huge change
 dat_long[, female := nafill(female, type = "nocb"), by = "id"] 
 dat_long[!is.na(female), female := female == 1L]
+
+# Rooms
+dat_long[, rooms := nafill(rooms, type = "locf"), by = "id"]
 
 # Grades 
 # 1 Mostly A’s
@@ -266,6 +273,7 @@ for (s in seq_along(networks_by_school)) {
 
   # Computing exposures
   exposures[[s]][["exposure_smoke"]]    <- exposure(exposures[[s]])
+  exposures[[s]][["exposure_count"]]    <- exposure(exposures[[s]], normalized = FALSE)
   exposures[[s]][["exposure_smoke_se"]] <- exposure(exposures[[s]], alt.graph = "se")
   exposures[[s]][["exposure_female"]]   <- exposure(exposures[[s]], attrs = "female")
 
