@@ -1,0 +1,15 @@
+---
+format: gfm
+---
+
+```{r}
+library(data.table)
+library(defm)
+data(valentesns)
+
+sns <- data.table(valentesns)
+```
+
+```{r}
+
+```
