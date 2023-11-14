@@ -20,6 +20,36 @@ for (f in netnames) {
   dat[[f]][isna] <- NA_character_
 }
 
+# Perceived use
+net_perceived <- names(dat)[grepl("t[1-4]_a7_f[1-7]", names(dat))]
+
+dat[, nusing_1 := 0L]
+dat[, nusing_2 := 0L]
+dat[, nusing_3 := 0L]
+dat[, nusing_4 := 0L]
+
+for (f in net_perceived) {
+
+  # Grabbing year and friend
+  y_i <- as.integer(gsub("t([1-4])_a7_f[1-7]", "\\1", f))
+  f_i <- as.integer(gsub("t[1-4]_a7_f([1-7])", "\\1", f))
+
+  # Varname
+  nusing_in_year <- sprintf("nusing_%i", y_i)
+
+  dat[, c(nusing_in_year) := .SD[[1]] + fifelse(
+    !is.na(.SD[[2]]) & (.SD[[2]] == 1L),
+    1L,
+    0
+  ), .SDcols = c(
+    nusing_in_year,
+    f
+    )]
+}
+
+# Tabling
+dat[, "nusing_4"] |> table()
+
 # Rooms in household (missing in wave 4)
 dat[, t4_i10 := NA_integer_]
 
@@ -39,6 +69,8 @@ dat_long <- melt(
     adultdrink = c("t1_j14", "t2_j14", "t3_j14", "t4_nj18"),
     year_value = c("t1_q6_year", "t2_q6_year", "t3_q6_year", "t4_q6_year"),
     rooms      = c("t1_i10", "t2_i10", "t3_i10", "t4_i10"),
+    # Number of friends using
+    nusing     = c("nusing_1", "nusing_2", "nusing_3", "nusing_4"),
     present    = paste0("wave", 1:4)
   ),
   variable.name = "year"
@@ -206,6 +238,25 @@ for (i in 1:4) {
 edgelist <- edgelist[, .(year, ego = id, alter = value)]
 edgelist[, school := as.integer(gsub("-.+", "", ego))]
 
+# Perceived use ---------------------------------------------------------------
+
+edgelist_perceived <- NULL
+for (i in 1:4) {
+
+  # Getting the year
+  net_perceived_i <- net_perceived[grepl(paste0("^t", i), net_perceived)]
+
+  edgelist_i_perceived <- subset(dat, select = c("id", net_perceived_i))
+
+  edgelist_i_perceived[, year := i]
+  edgelist_i_perceived <- melt(
+    edgelist_i_perceived,
+    id.vars = c("id", "year"),
+    measure.vars = net_perceived_i
+  )
+
+}
+
 # Generating exposure variable -------------------------------------------------
 
 # Generating the graph
@@ -271,11 +322,35 @@ for (s in seq_along(networks_by_school)) {
       )[, toa_smoke]
   ) 
 
+
   # Computing exposures
   exposures[[s]][["exposure_smoke"]]    <- exposure(exposures[[s]])
   exposures[[s]][["exposure_count"]]    <- exposure(exposures[[s]], normalized = FALSE)
   exposures[[s]][["exposure_smoke_se"]] <- exposure(exposures[[s]], alt.graph = "se")
-  exposures[[s]][["exposure_female"]]   <- exposure(exposures[[s]], attrs = "female")
+  
+  # Same gender
+  match_female <- lapply(net, \(x) {
+    vertex_covariate_compare(
+      as_adj(x),
+      X = V(x)$female,
+      "=="
+    )
+  })
+  exposures[[s]][["exposure_female"]] <- exposure(
+    exposures[[s]], alt.graph = match_female, valued = TRUE
+    )
+  
+  # Two steps away
+  exposures[[s]][["exposure_2steps"]] <- exposure(
+    exposures[[s]]^2, # The powergraph shows the # of paths of length 2 between i-j
+    valued = FALSE    # This makes sure that the counts are used as 0/1 instead.
+  )
+
+  # Indegree alter
+  exposures[[s]][["indegree"]] <- dgr(exposures[[s]], cmode = "indegree")
+  exposures[[s]][["outdegree"]] <- dgr(exposures[[s]], cmode = "outdegree")
+  exposures[[s]][["exposure_indegree"]] <- exposure(
+    exposures[[s]], attrs = "indegree", valued = TRUE)
 
   # Turning into a data table object
   exposures[[s]] <- as.data.frame(exposures[[s]]) |>
@@ -287,7 +362,14 @@ for (s in seq_along(networks_by_school)) {
     exposures[[s]][,.(
       id, year = as.integer(per),
       # All the computed exposures
-      exposure_smoke, exposure_smoke_se, exposure_female
+      exposure_smoke,
+      exposure_count,
+      exposure_smoke_se,
+      exposure_female,
+      exposure_2steps,
+      exposure_indegree,
+      indegree,
+      outdegree
       )],
     all.x = TRUE, all.y = FALSE
   )
@@ -297,17 +379,30 @@ for (s in seq_along(networks_by_school)) {
 # Putting all in a single list
 dat_long <- exposures |> rbindlist()
 
+# Exposure based on perceived use
+dat_long[, exposure_perceived_count :=  nusing]
+dat_long[, exposure_perceived       :=  fifelse(outdegree > 0, nusing/outdegree, 0)]
+
+# Some cases
+dat_long[, cumsum(prop.table(table(exposure_perceived)))] |>
+  as.data.frame() # ~7 % of the cases go above 100% exposure.
+                  # We'll just truncate them.
+
+dat_long[, exposure_perceived := fifelse(
+  exposure_perceived > 1, 1, exposure_perceived
+  )]
+
 # Lagging exposures
 dat_long[, exposure_smoke := shift(
-  exposure_smoke, n = 1, type = "lag", fill = -1
+  exposure_smoke, n = 1, type = "lag", fill = NA_real_
   ), by = id]
 
 dat_long[, exposure_smoke_se := shift(
-  exposure_smoke_se, n = 1, type = "lag", fill = -1
+  exposure_smoke_se, n = 1, type = "lag", fill = NA_real_
   ), by = id]
 
 dat_long[, exposure_female := shift(
-  exposure_female, n = 1, type = "lag", fill = -1
+  exposure_female, n = 1, type = "lag", fill = NA_real_
   ), by = id]
 
 # Final cleaning ---------------------------------------------------------------
