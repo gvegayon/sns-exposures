@@ -67,6 +67,7 @@ dat_long <- melt(
     sibsmoke   = c("t1_j7", "t2_j7", "t3_j7", "t4_nj8"),
     sibdrink   = c("t1_j15", "t2_j15", "t3_j15", "t4_nj19"),
     adultdrink = c("t1_j14", "t2_j14", "t3_j14", "t4_nj18"),
+    adultsmoke = c("t1_j6", "t2_j6", "t3_j6", "t4_nj7"),
     year_value = c("t1_q6_year", "t2_q6_year", "t3_q6_year", "t4_q6_year"),
     rooms      = c("t1_i10", "t2_i10", "t3_i10", "t4_i10"),
     # Number of friends using
@@ -105,6 +106,12 @@ dat_long[!is.na(female), female := female == 1L]
 
 # Rooms
 dat_long[, rooms := nafill(rooms, type = "locf"), by = "id"]
+
+# Adult smoke
+dat_long[, adultsmoke := fifelse(
+  adultsmoke == 1, 0L, fifelse(
+    adultsmoke %in% c(2, 3), 1L, NA_integer_
+    ))]
 
 # Grades 
 # 1 Mostly A’s
@@ -340,10 +347,24 @@ for (s in seq_along(networks_by_school)) {
     exposures[[s]], alt.graph = match_female, valued = TRUE
     )
   
-  # Two steps away
+  # Two steps away -------------------------------------------------------------
+
+  # The powergraph shows the # of paths of length 2 between i-j
+  twostep <- as_spmat(exposures[[s]]^2)
+  twostep <- lapply(twostep, \(x) {
+    x@x <- 1/2
+  })
+
+  # We use the direct and one step away
+  twostep <- Map(\(a, b) {
+    a@x <- 1
+    a + b
+  }, a = as_spmat(exposures[[s]]), b = twostep)
+
   exposures[[s]][["exposure_2steps"]] <- exposure(
-    exposures[[s]]^2, # The powergraph shows the # of paths of length 2 between i-j
-    valued = FALSE    # This makes sure that the counts are used as 0/1 instead.
+    exposures[[s]], 
+    alt.graph = twostep,
+    valued = TRUE 
   )
 
   # Indegree alter
@@ -397,12 +418,28 @@ dat_long[, exposure_smoke := shift(
   exposure_smoke, n = 1, type = "lag", fill = NA_real_
   ), by = id]
 
+dat_long[, exposure_count := shift(
+  exposure_count, n = 1, type = "lag", fill = NA_real_
+  ), by = id]
+
 dat_long[, exposure_smoke_se := shift(
   exposure_smoke_se, n = 1, type = "lag", fill = NA_real_
   ), by = id]
 
+dat_long[, exposure_perceived := shift(
+  exposure_perceived, n = 1, type = "lag", fill = NA_real_
+  ), by = id]
+
 dat_long[, exposure_female := shift(
   exposure_female, n = 1, type = "lag", fill = NA_real_
+  ), by = id]
+
+dat_long[, exposure_2steps := shift(
+  exposure_2steps, n = 1, type = "lag", fill = NA_real_
+  ), by = id]
+
+dat_long[, exposure_indegree := shift(
+  exposure_indegree, n = 1, type = "lag", fill = NA_real_
   ), by = id]
 
 # Final cleaning ---------------------------------------------------------------

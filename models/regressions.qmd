@@ -1,0 +1,215 @@
+---
+title: Example of diffnet regressions
+format:
+  html:
+    embed-resources: true
+---
+
+
+```{r}
+library(data.table)
+library(texreg)
+library(lmtest)
+dat <- fread("data/sns_model_data.csv")
+
+# Filtering data to the toa date
+dat_filtered <- dat[is.na(toa_smoke) | (year <= toa_smoke)]
+
+# And only keeping individuals in times 1 and 4
+# dat_filtered <- dat_filtered[year %in% c(1, 4)]
+```
+
+```{r}
+model0 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + rooms + factor(year) + Female +
+    Grades + Hispanic + adultsmoke +
+    factor(school),
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+
+```
+
+We now print the model using the `texreg` package:
+
+```{r}
+#| results: 'asis'
+texreg::knitreg(model0)
+```
+
+The variables room, female, and adult smoke were not significant. Rerunning the regression:
+
+```{r}
+model1 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + factor(year) +
+    Grades + Hispanic +
+    I(school == 112),
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+Printing the output:
+
+```{r}
+#| results: 'asis'
+texreg::knitreg(list(model0, model1))
+```
+
+# Exposure models
+
+## Exposure model 1
+
+```{r}
+#| label: exposure
+model_exp1 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_smoke,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+## Exposure model 2
+
+```{r}
+#| label: exposure_count
+model_exp2 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_count,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+
+```
+
+
+## Exposure model 3
+
+```{r}
+#| label: exposusre_se
+model_exp3 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_smoke_se,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+
+```
+
+## Exposure model 4
+
+```{r}
+#| label: exposure_same_sex
+model_exp4 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_female,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+## Exposure model 5
+
+```{r}
+#| label: exposure_2steps
+model_exp5 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_2steps,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+## Exposure model 6
+
+```{r}
+#| label: exposure_indegree
+model_exp6 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_indegree,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+## Expossure model 7
+
+```{r}
+#| label: exposure_perceived
+model_exp7 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_perceived,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+Processing the models
+
+```{r}
+#| label: processing
+fitted_models <- list(
+  model1,
+  model_exp1,
+  model_exp2,
+  model_exp3,
+  model_exp4,
+  model_exp5,
+  model_exp6,
+  model_exp7
+  )
+
+# We have to exponentiate the coefficients and
+# remove the se so texreg doesn't print it
+odds <- lapply(fitted_models, \(x) {
+  x <- extract(x)
+  x@coef <- exp(x@coef)
+  x@se   <- numeric()
+  x
+})
+```
+
+```{r}
+#| results: 'asis'
+texreg::knitreg(fitted_models, single.row = TRUE)
+```
+
+
+```{r}
+#| label: with-odds
+#| results: 'asis'
+texreg::knitreg(
+  odds, main = "Odds ratios"
+)
+```
