@@ -13,19 +13,6 @@ library(texreg)
     Please cite the JSS article in your publications -- see citation("texreg").
 
 ``` r
-library(lmtest)
-```
-
-    Loading required package: zoo
-
-
-    Attaching package: 'zoo'
-
-    The following objects are masked from 'package:base':
-
-        as.Date, as.Date.numeric
-
-``` r
 dat <- fread("data/sns_model_data.csv")
 
 # Filtering data to the toa date
