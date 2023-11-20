@@ -2,13 +2,13 @@
 
 This repository contains the data and code used in the paper to process the survey data, and generate the exposure measurements using the [netdiffuseR](https://cran.r-project.org/package=netdiffuseR) R package. The code uses the following R packages:
 
-- [**netdiffuseR**](https://cran.r-project.com/package=netdiffuseR)
-- [**foreign**](https://cran.r-project.com/package=foreign)
-- [**igraph**](https://cran.r-project.com/package=igraph)
-- [**sna**](https://cran.r-project.com/package=sna)
-- [**data.table**](https://cran.r-project.com/package=data.table)
-- [**quarto**](https://cran.r-project.com/package=quarto)
-- [**texreg**](https://cran.r-project.com/package=texreg)
+- [**netdiffuseR**](https://cran.r-project.org/package=netdiffuseR)
+- [**foreign**](https://cran.r-project.org/package=foreign)
+- [**igraph**](https://cran.r-project.org/package=igraph)
+- [**sna**](https://cran.r-project.org/package=sna)
+- [**data.table**](https://cran.r-project.org/package=data.table)
+- [**quarto**](https://cran.r-project.org/package=quarto)
+- [**texreg**](https://cran.r-project.org/package=texreg)
 
 The code is organized as follows:
 
