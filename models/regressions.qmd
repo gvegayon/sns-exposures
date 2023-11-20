@@ -1,7 +1,7 @@
 ---
 title: Example of diffnet regressions
 format:
-  html:
+  gfm:
     embed-resources: true
 ---
 
@@ -9,7 +9,6 @@ format:
 ```{r}
 library(data.table)
 library(texreg)
-library(lmtest)
 dat <- fread("data/sns_model_data.csv")
 
 # Filtering data to the toa date
