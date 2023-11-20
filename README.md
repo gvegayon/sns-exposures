@@ -15,3 +15,5 @@ The code is organized as follows:
 
 - `models/`: contains the R scripts used to process the data, and generate the exposure measurements. Particularly, the file `models/regressions.qmd` (a [Quarto](https://quarto.org) file) that runs the different regression models shown in the paper.
 
+- `data-raw`: contains the raw database from the SNS study.
+
