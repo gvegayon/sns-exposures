@@ -72,7 +72,11 @@ dat_long <- melt(
     rooms      = c("t1_i10", "t2_i10", "t3_i10", "t4_i10"),
     # Number of friends using
     nusing     = c("nusing_1", "nusing_2", "nusing_3", "nusing_4"),
-    present    = paste0("wave", 1:4)
+    present    = paste0("wave", 1:4),
+    # Sports
+    sport_basket = c("t1_e1_2", "t2_e1_2", "t3_e1_2", "t4_e1_2"),
+    sport_soccer = c("t1_e1_10", "t2_e1_10", "t3_e1_10", "t4_e1_10"),
+    sport_run    = c("t1_e1_14", "t2_e1_14", "t3_e1_14", "t4_e1_14")
   ),
   variable.name = "year"
 )
@@ -106,6 +110,11 @@ dat_long[!is.na(female), female := female == 1L]
 
 # Rooms
 dat_long[, rooms := nafill(rooms, type = "locf"), by = "id"]
+
+# Sports (NAs === 0)
+dat_long[, sport_basket := fifelse(sport_basket == 1, 1L, 0L)]
+dat_long[, sport_soccer := fifelse(sport_soccer == 1, 1L, 0L)]
+dat_long[, sport_run := fifelse(sport_run == 1, 1L, 0L)]
 
 # Adult smoke
 dat_long[, adultsmoke := fifelse(
@@ -352,12 +361,13 @@ for (s in seq_along(networks_by_school)) {
   # The powergraph shows the # of paths of length 2 between i-j
   twostep <- as_spmat(exposures[[s]]^2)
   twostep <- lapply(twostep, \(x) {
-    x@x <- 1/2
+    x@x <- rep(1/2, length(x@x))
+    x
   })
 
   # We use the direct and one step away
   twostep <- Map(\(a, b) {
-    a@x <- 1
+    a@x <- rep(1, length(a@x))
     a + b
   }, a = as_spmat(exposures[[s]]), b = twostep)
 
@@ -372,6 +382,50 @@ for (s in seq_along(networks_by_school)) {
   exposures[[s]][["outdegree"]] <- dgr(exposures[[s]], cmode = "outdegree")
   exposures[[s]][["exposure_indegree"]] <- exposure(
     exposures[[s]], attrs = "indegree", valued = TRUE)
+
+  # Ego-density weighted
+  exposures[[s]][["ego_density"]] <- lapply(net, \(x) {
+    
+    sapply(make_ego_graph(x, mode = "out"), igraph::graph.density)
+
+  })
+
+  exposures[[s]][["ego_density"]] <- lapply(exposures[[s]][["ego_density"]], 
+    \(x) {
+      fifelse(!is.finite(x), 0, x)
+    }
+  )
+  
+
+  exposures[[s]][["exposure_density"]] <- exposure(
+    exposures[[s]], attrs = "ego_density", valued = FALSE
+  )
+
+  # Same team
+  joint_team <- lapply(net, \(x) {
+    b <- vertex_covariate_compare(as_adj(x), X = V(x)$sport_basket,"==")
+    s <- vertex_covariate_compare(as_adj(x), X = V(x)$sport_soccer,"==")
+    r <- vertex_covariate_compare(as_adj(x), X = V(x)$sport_run,"==")
+
+    ans <- b + s + r
+    ans@x <- rep(1, length(ans@x))
+    ans
+  })
+
+  exposures[[s]][["exposure_team"]] <- exposure(
+    exposures[[s]], alt.graph = joint_team, valued = FALSE
+  )
+
+  # Simmelian ties
+  simmelian_mat <- lapply(as_spmat(exposures[[s]]), \(x) {
+    
+    as.dgCMatrix(
+      sna::simmelian(network::as.network(as.matrix(x)))
+    )
+  })
+  exposures[[s]][["exposure_simmelian"]] <- exposure(
+    exposures[[s]], alt.graph = simmelian_mat
+  )
 
   # Turning into a data table object
   exposures[[s]] <- as.data.frame(exposures[[s]]) |>
@@ -389,8 +443,12 @@ for (s in seq_along(networks_by_school)) {
       exposure_female,
       exposure_2steps,
       exposure_indegree,
+      exposure_density,
+      exposure_team,
+      exposure_simmelian,
       indegree,
-      outdegree
+      outdegree,
+      ego_density
       )],
     all.x = TRUE, all.y = FALSE
   )
@@ -440,6 +498,18 @@ dat_long[, exposure_2steps := shift(
 
 dat_long[, exposure_indegree := shift(
   exposure_indegree, n = 1, type = "lag", fill = NA_real_
+  ), by = id]
+
+dat_long[, exposure_team := shift(
+  exposure_team, n = 1, type = "lag", fill = NA_real_
+  ), by = id]
+
+dat_long[, exposure_density := shift(
+  exposure_density, n = 1, type = "lag", fill = NA_real_
+  ), by = id]
+
+dat_long[, exposure_simmelian := shift(
+  exposure_simmelian, n = 1, type = "lag", fill = NA_real_
   ), by = id]
 
 # Final cleaning ---------------------------------------------------------------

@@ -175,6 +175,54 @@ model_exp7 <- glm(
 )
 ```
 
+## Exposure model 8
+
+```{r}
+#| label: exposure_density
+model_exp8 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_density,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+## Exposure model 9
+
+```{r}
+#| label: exposure_team
+model_exp9 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic + 
+    I(school == 112) +
+    exposure_team,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
+## Exposure model 10
+
+```{r}
+#| label: exposure_simmelian
+model_exp10 <- glm(
+  tobacco ~
+    sibsmoke + adultdrink + 
+    factor(year) + # I(year == 1) +
+    Grades + Hispanic +
+    I(school == 112) +
+    exposure_simmelian,
+  data = dat_filtered,
+  family = binomial(link = "logit")
+)
+```
+
 Processing the models
 
 ```{r}
@@ -187,7 +235,10 @@ fitted_models <- list(
   model_exp4,
   model_exp5,
   model_exp6,
-  model_exp7
+  model_exp7,
+  model_exp8,
+  model_exp9,
+  model_exp10
   )
 
 # We have to exponentiate the coefficients and
